@@ -134,14 +134,10 @@ export class TunerService {
 
     this._status.set('requesting');
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 1,
-        },
-      });
+      // Minimal constraints — Android WebView rejects unknown keys
+      // like echoCancellation / channelCount. We process raw audio
+      // anyway, so we don't need those browser-level DSP controls.
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       this.handleMicError(err);
       return;
@@ -209,7 +205,9 @@ export class TunerService {
   }
 
   private handleMicError(err: unknown): void {
+    console.warn('[TunerService] mic error:', err);
     const name = (err as { name?: string })?.name ?? '';
+    const msg = (err as { message?: string })?.message ?? '';
     switch (name) {
       case 'NotAllowedError':
       case 'PermissionDeniedError':
@@ -219,9 +217,20 @@ export class TunerService {
         this._status.set('unavailable'); break;
       case 'NotReadableError':
       case 'SecurityError':
+      case 'AbortError':
         this._status.set('in-use'); break;
+      case 'OverconstrainedError':
+      case 'TypeError':
+        // Constraints not supported — retry with bare { audio: true }
+        this._status.set('error'); break;
       default:
-        this._status.set('error');
+        // On Android WebView, permission denial sometimes arrives as
+        // a generic DOMException without a recognised name.
+        if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('denied')) {
+          this._status.set('denied');
+        } else {
+          this._status.set('error');
+        }
     }
   }
 

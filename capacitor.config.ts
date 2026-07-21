@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.guitartuner.app',
-  appName: 'Guitar Tuner',
+  appId: 'com.zemuguitartuner.app',
+  appName: 'Zemu Guitar Tuner',
   webDir: 'www',
 };
 

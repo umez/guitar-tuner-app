@@ -229,7 +229,8 @@ function buildTicks(): TickVM[] {
   const degPerCent = 90 / 50;
   const out: TickVM[] = [];
   for (let c = -50; c <= 50; c += 10) {
-    const ang = 90 + c * degPerCent;
+    // Same mapping as zones: 0¢ = 270° (top).
+    const ang = 270 + c * degPerCent;
     const major = c === 0 || Math.abs(c) === 50;
     const mid = Math.abs(c) === 25;
     const rIn = major || mid ? R_INNER - 6 : R_INNER;
@@ -246,14 +247,17 @@ function buildTicks(): TickVM[] {
 
 function buildDialGeometry(): DialGeom {
   const degPerCent = 90 / 50; // ±50 cents → ±90°
+
+  // Cents → screen degrees in the top semicircle system.
+  // 0 cents = 270° (top / 12 o'clock), -50¢ = 180° (left), +50¢ = 360° (right).
   const band = (c1: number, c2: number) => {
-    const a1 = 90 + c1 * degPerCent;
-    const a2 = 90 + c2 * degPerCent;
+    const a1 = 270 + c1 * degPerCent;
+    const a2 = 270 + c2 * degPerCent;
     return ringSegment(CX, CY, R_OUTER - 2, R_INNER + 2, Math.min(a1, a2), Math.max(a1, a2));
   };
 
   return {
-    body: ringSegment(CX, CY, R_OUTER, R_INNER, 0, 180),
+    body: ringSegment(CX, CY, R_OUTER, R_INNER, 180, 360),
     zoneRedL: band(-50, -20),
     zoneAmberL: band(-20, -5),
     zoneGreen: band(-5, 5),
