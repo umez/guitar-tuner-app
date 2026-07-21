@@ -1,0 +1,318 @@
+:host {
+  --gt-red: #ff4d6d;
+  --gt-amber: #ffb547;
+  --gt-green: #3ddc84;
+  --gt-accent: #4ea8ff;
+  --gt-text: #e8ecf3;
+  --gt-text-dim: #8590a8;
+  --gt-text-faint: #525c70;
+  --gt-border: #232c3f;
+  --gt-border-soft: #1b2233;
+  --gt-bg-elev: #121826;
+  --gt-bg-elev-2: #1a2130;
+}
+
+ion-content.tuner-content {
+  --background: #0a0d14;
+}
+
+// The content padding inside ion-content. We use a wrapping div-like layout.
+.tuner-content::part(scroll) {
+  padding: 14px 20px calc(28px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ---------- Tuning chips ---------- */
+.tunings {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  margin: 0 -2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.chip {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--gt-bg-elev);
+  border: 1px solid var(--gt-border-soft);
+  color: var(--gt-text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  font-family: inherit;
+
+  &:hover { color: var(--gt-text); border-color: var(--gt-border); }
+
+  &.active {
+    background: linear-gradient(180deg, rgba(78,168,255,0.22), rgba(78,168,255,0.10));
+    border-color: rgba(78,168,255,0.55);
+    color: #cfe5ff;
+    box-shadow: 0 0 0 1px rgba(78,168,255,0.15), 0 6px 18px -8px rgba(78,168,255,0.5);
+  }
+}
+
+/* ---------- Tuner dial ---------- */
+.dial-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1.15;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  margin-top: 6px;
+}
+
+.dial-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+
+  .arc-mid { transition: fill 0.25s ease; }
+
+  &.state-red    .arc-mid { fill: #2a1418; }
+  &.state-amber  .arc-mid { fill: #2a2114; }
+  &.state-green  .arc-mid { fill: #143020; }
+  &.state-idle   .arc-mid { fill: url(#midGrad); }
+
+  .hub { fill: #3a4459; transition: fill 0.2s ease; }
+  &.state-red    .hub { fill: var(--gt-red); }
+  &.state-amber  .hub { fill: var(--gt-amber); }
+  &.state-green  .hub { fill: var(--gt-green); }
+}
+
+.dial-needle {
+  transform-origin: 200px 295px;
+  transition: transform 0.16s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+
+/* ---------- Readout ---------- */
+.readout {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 96px;
+  justify-content: center;
+}
+
+.note-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1;
+}
+
+.note-letter {
+  font-size: 88px;
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  color: var(--gt-text);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+  text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+
+  &.in-tune { color: var(--gt-green); }
+  &.close   { color: var(--gt-amber); }
+  &.dim     { color: var(--gt-text-faint); text-shadow: none; }
+}
+
+.note-sharp {
+  font-size: 30px;
+  color: var(--gt-text-dim);
+  font-weight: 300;
+  margin-left: -4px;
+}
+
+.note-octave {
+  font-size: 18px;
+  color: var(--gt-text-faint);
+  font-weight: 400;
+  align-self: flex-start;
+  transform: translateY(2px);
+}
+
+.freq {
+  font-size: 15px;
+  color: var(--gt-text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+
+  .num { color: var(--gt-text); font-weight: 500; }
+  .num.dim { color: var(--gt-text-faint); }
+  .target { color: var(--gt-text-faint); }
+}
+
+.status {
+  font-size: 12px;
+  color: var(--gt-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-top: 6px;
+  min-height: 14px;
+  transition: color 0.2s ease;
+
+  &.in-tune { color: var(--gt-green); }
+  &.close   { color: var(--gt-amber); }
+}
+
+/* ---------- String pegs ---------- */
+.strings {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.string {
+  flex: 1 1 0;
+  max-width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  color: inherit;
+  font-family: inherit;
+
+  &:hover .string-peg { border-color: #324158; color: var(--gt-text); }
+}
+
+.string-peg {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #2a3447, #161c2b);
+  border: 1px solid var(--gt-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--gt-text-dim);
+  position: relative;
+  transition: all 0.2s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+}
+
+.string.active .string-peg {
+  border-color: var(--gt-accent);
+  color: #cfe5ff;
+  box-shadow: 0 0 0 1px rgba(78,168,255,0.25), 0 0 22px -2px rgba(78,168,255,0.5);
+  background: radial-gradient(circle at 35% 30%, #1f3251, #15203a);
+}
+
+.string.detected .string-peg {
+  border-color: var(--gt-accent);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(78,168,255,0.3), 0 0 28px -2px rgba(78,168,255,0.65);
+  background: radial-gradient(circle at 35% 30%, #2a456a, #1a2c4d);
+}
+
+.string.detected.in-tune .string-peg {
+  border-color: var(--gt-green);
+  box-shadow: 0 0 0 1px rgba(61,220,132,0.3), 0 0 30px -2px rgba(61,220,132,0.7);
+  background: radial-gradient(circle at 35% 30%, #1f4d38, #15322a);
+  color: #c7ffe1;
+}
+
+.string-freq {
+  font-size: 10px;
+  color: var(--gt-text-faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.string.active .string-freq { color: var(--gt-text-dim); }
+
+/* ---------- Calibration ---------- */
+.calib {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--gt-bg-elev);
+  border: 1px solid var(--gt-border-soft);
+  border-radius: 16px;
+}
+
+.calib-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.calib-label {
+  font-size: 12px;
+  color: var(--gt-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+}
+
+.calib-value {
+  font-size: 15px;
+  color: var(--gt-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+
+  .unit { color: var(--gt-text-faint); font-size: 12px; margin-left: 2px; }
+}
+
+// Ionic range theming
+ion-range {
+  --bar-background: var(--gt-bg-elev-2);
+  --bar-height: 4px;
+  --bar-border-radius: 2px;
+  --knob-size: 18px;
+  --pin-background: var(--gt-accent);
+  padding-top: 0;
+  padding-bottom: 4px;
+}
+
+/* ---------- Mic message ---------- */
+.mic-msg {
+  font-size: 13px;
+  color: var(--gt-text-dim);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 340px;
+  margin: 0 auto;
+  min-height: 20px;
+
+  &.error { color: #ff97a8; }
+}
+
+@media (max-width: 380px) {
+  .note-letter { font-size: 72px; }
+  .string-peg { font-size: 19px; }
+  .chip { padding: 8px 13px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dial-needle { transition: none !important; }
+}
