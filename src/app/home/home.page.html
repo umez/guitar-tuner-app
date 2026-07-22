@@ -16,140 +16,158 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="tuner-content">
+<ion-content [fullscreen]="true" class="tuner-content">
+  <div class="scroll-inner">
 
-  <!-- Tuning preset chips -->
-  <div class="tunings" role="tablist" aria-label="Tuning preset">
-    @for (t of tunings; track t.id) {
-      <button
-        class="chip"
-        [class.active]="t.id === tuner.tuningId()"
-        role="tab"
-        [attr.aria-selected]="t.id === tuner.tuningId()"
-        (click)="onTuningSelect(t.id)"
-      >{{ t.name }}</button>
-    }
-  </div>
-
-  <!-- Tuner dial -->
-  <div class="dial-wrap">
-    <svg
-      class="dial-svg"
-      [class]="dialStateClass()"
-      viewBox="0 0 400 320"
-      preserveAspectRatio="xMidYMax meet"
-      aria-hidden="true"
-    >
-      <defs>
-        <filter id="needleGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="b" />
-          <feMerge>
-            <feMergeNode in="b" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        <linearGradient id="midGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#1c2436" />
-          <stop offset="100%" stop-color="#121828" />
-        </linearGradient>
-      </defs>
-
-      <!-- Arc body + colored zones -->
-      <path class="arc-mid" [attr.d]="dialGeometry.body" fill="url(#midGrad)" stroke="#2a3346" stroke-width="1" />
-      <path [attr.d]="dialGeometry.zoneRedL"   fill="rgba(255,77,109,0.16)" />
-      <path [attr.d]="dialGeometry.zoneAmberL" fill="rgba(255,181,71,0.18)" />
-      <path [attr.d]="dialGeometry.zoneGreen"  fill="rgba(61,220,132,0.22)" />
-      <path [attr.d]="dialGeometry.zoneAmberR" fill="rgba(255,181,71,0.18)" />
-      <path [attr.d]="dialGeometry.zoneRedR"   fill="rgba(255,77,109,0.16)" />
-
-      <!-- Ticks -->
-      <g stroke="#3a4459" stroke-width="1.5" stroke-linecap="round">
-        @for (t of ticks; track $index) {
-          <line [attr.x1]="t.x1" [attr.y1]="t.y1" [attr.x2]="t.x2" [attr.y2]="t.y2" [attr.stroke-width]="t.width" />
-        }
-      </g>
-      <text [attr.x]="dialCenterX" [attr.y]="dialCenterY" fill="#3ddc84" font-size="9" font-weight="700" text-anchor="middle">0</text>
-
-      <!-- Flat / Sharp labels -->
-      <text x="68"  y="218" font-size="13" fill="#8590a8" font-weight="700" text-anchor="middle" letter-spacing="2">♭</text>
-      <text x="332" y="218" font-size="13" fill="#8590a8" font-weight="700" text-anchor="middle" letter-spacing="2">♯</text>
-      <text x="115" y="305" font-size="9" fill="#525c70" text-anchor="middle" letter-spacing="1">FLAT</text>
-      <text x="285" y="305" font-size="9" fill="#525c70" text-anchor="middle" letter-spacing="1">SHARP</text>
-
-      <!-- Needle -->
-      <g class="dial-needle" [style.transform]="'rotate(' + needleAngle() + 'deg)'">
-        <line x1="200" y1="295" x2="200" y2="58"
-              stroke="#e8ecf3" stroke-width="2.5" stroke-linecap="round"
-              filter="url(#needleGlow)" />
-        <circle cx="200" cy="60" r="5" fill="#e8ecf3" filter="url(#needleGlow)" />
-      </g>
-
-      <!-- Center hub -->
-      <circle cx="200" cy="295" r="14" fill="#1a2130" stroke="#2a3346" stroke-width="1" />
-      <circle class="hub" cx="200" cy="295" r="5" />
-    </svg>
-  </div>
-
-  <!-- Readout -->
-  <div class="readout">
-    <div class="note-row">
-      @if (tuner.reading(); as r) {
-        <span class="note-letter"
-              [class]="noteLetterClass()"
-        >{{ r.noteLetter }}</span>
-        @if (r.noteAccidental) {
-          <span class="note-sharp">{{ r.noteAccidental }}</span>
-        }
-        <span class="note-octave">{{ r.octave }}</span>
-      } @else {
-        <span class="note-letter dim">—</span>
+    <!-- Tuning preset chips -->
+    <div class="tunings" role="tablist" aria-label="Tuning preset">
+      @for (t of tunings; track t.id) {
+        <button
+          class="chip"
+          [class.active]="t.id === tuner.tuningId()"
+          role="tab"
+          [attr.aria-selected]="t.id === tuner.tuningId()"
+          (click)="onTuningSelect(t.id)"
+        >{{ t.name }}</button>
       }
     </div>
 
-    <div class="freq">
-      @if (tuner.reading(); as r) {
-        <span class="num">{{ r.freq.toFixed(1) }}</span><span> Hz</span>
-        <span class="target">· target {{ r.idealFreq.toFixed(1) }}</span>
-      } @else {
-        <span class="num dim">—</span><span> Hz</span>
-      }
-    </div>
-
-    <div class="status" [class]="statusClass()">{{ statusText() }}</div>
-  </div>
-
-  <!-- String pegs -->
-  <div class="strings">
-    @for (p of pegs(); track p.index) {
-      <button
-        class="string"
-        [class.active]="p.selected"
-        [class.detected]="p.detected"
-        [class.in-tune]="p.inTune"
-        [attr.aria-label]="'String ' + p.name"
-        (click)="onPegTap(p.index)"
+    <!-- Tuner dial -->
+    <div class="dial-wrap">
+      <svg
+        class="dial-svg"
+        [class]="dialStateClass()"
+        viewBox="0 0 400 320"
+        preserveAspectRatio="xMidYMax meet"
+        aria-hidden="true"
       >
-        <div class="string-peg">{{ p.name }}</div>
-        <div class="string-freq">{{ p.targetFreq.toFixed(1) }} Hz</div>
-      </button>
-    }
-  </div>
+        <defs>
+          <filter id="needleGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <linearGradient id="midGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1c2436" />
+            <stop offset="100%" stop-color="#121828" />
+          </linearGradient>
+        </defs>
 
-  <!-- Calibration -->
-  <div class="calib">
-    <div class="calib-head">
-      <span class="calib-label">Reference Pitch</span>
-      <span class="calib-value">{{ tuner.a4() }}<span class="unit">Hz</span></span>
+        <!-- Arc body + colored zones -->
+        <path class="arc-mid" [attr.d]="dialGeometry.body" fill="url(#midGrad)" stroke="#2a3346" stroke-width="1" />
+        <path [attr.d]="dialGeometry.zoneRedL"   fill="rgba(255,77,109,0.18)" />
+        <path [attr.d]="dialGeometry.zoneAmberL" fill="rgba(255,181,71,0.20)" />
+        <path [attr.d]="dialGeometry.zoneGreen"  fill="rgba(61,220,132,0.25)" />
+        <path [attr.d]="dialGeometry.zoneAmberR" fill="rgba(255,181,71,0.20)" />
+        <path [attr.d]="dialGeometry.zoneRedR"   fill="rgba(255,77,109,0.18)" />
+
+        <!-- Ticks -->
+        <g stroke="#3a4459" stroke-width="1.5" stroke-linecap="round">
+          @for (t of ticks; track $index) {
+            <line [attr.x1]="t.x1" [attr.y1]="t.y1" [attr.x2]="t.x2" [attr.y2]="t.y2" [attr.stroke-width]="t.width" />
+          }
+        </g>
+        <text [attr.x]="dialCenterX" [attr.y]="dialCenterY" fill="#3ddc84" font-size="9" font-weight="700" text-anchor="middle">0</text>
+
+        <!-- Flat / Sharp labels (positioned at the left/right ends of the top semicircle) -->
+        <text x="22"  y="298" font-size="18" fill="#8590a8" font-weight="700" text-anchor="middle" letter-spacing="2">♭</text>
+        <text x="378" y="298" font-size="18" fill="#8590a8" font-weight="700" text-anchor="middle">♯</text>
+
+        <!-- Needle — SVG transform attribute (reliable in WebView) -->
+        <g class="dial-needle" [attr.transform]="'rotate(' + needleAngle() + ', 200, 295)'">
+          <line x1="200" y1="295" x2="200" y2="58"
+                stroke="#e8ecf3" stroke-width="2.5" stroke-linecap="round"
+                filter="url(#needleGlow)" />
+          <circle cx="200" cy="60" r="5" fill="#e8ecf3" filter="url(#needleGlow)" />
+        </g>
+
+        <!-- Center hub -->
+        <circle cx="200" cy="295" r="14" fill="#1a2130" stroke="#2a3346" stroke-width="1" />
+        <circle class="hub" cx="200" cy="295" r="5" />
+      </svg>
     </div>
-    <ion-range
-      [min]="435" [max]="445" [step]="1" [pin]="true"
-      [value]="tuner.a4()"
-      (ionInput)="onCalibChange($any($event))"
-      aria-label="Reference pitch"
-    ></ion-range>
+
+    <!-- Readout -->
+    <div class="readout">
+      <div class="note-row">
+        @if (tuner.reading(); as r) {
+          <span class="note-letter" [class]="noteLetterClass()">{{ r.noteLetter }}</span>
+          @if (r.noteAccidental) {
+            <span class="note-sharp">{{ r.noteAccidental }}</span>
+          }
+          <span class="note-octave">{{ r.octave }}</span>
+        } @else {
+          <span class="note-letter dim">—</span>
+        }
+      </div>
+
+      <div class="freq">
+        @if (tuner.reading(); as r) {
+          <span class="num">{{ r.freq.toFixed(1) }}</span><span> Hz</span>
+          <span class="target">· target {{ r.idealFreq.toFixed(1) }}</span>
+        } @else {
+          <span class="num dim">—</span><span> Hz</span>
+        }
+      </div>
+
+      <div class="status" [class]="statusClass()">{{ statusText() }}</div>
+    </div>
+
+    <!-- String pegs -->
+    <div class="strings">
+      @for (p of pegs(); track p.index) {
+        <button
+          class="string"
+          [class.active]="p.selected"
+          [class.detected]="p.detected"
+          [class.in-tune]="p.inTune"
+          [attr.aria-label]="'String ' + p.name"
+          (click)="onPegTap(p.index)"
+        >
+          <div class="string-peg">{{ p.name }}</div>
+          <div class="string-freq">{{ p.targetFreq.toFixed(1) }} Hz</div>
+        </button>
+      }
+    </div>
+
+    <!-- Calibration -->
+    <div class="calib">
+      <div class="calib-head">
+        <span class="calib-label">Reference Pitch</span>
+        <button class="calib-reset" (click)="resetCalib()" aria-label="Reset to 440 Hz">Reset</button>
+        <span class="calib-value">{{ tuner.a4() }}<span class="unit">Hz</span></span>
+      </div>
+      <ion-range
+        [min]="435" [max]="445" [step]="1" [pin]="true" [snaps]="true"
+        [value]="tuner.a4()"
+        (ionInput)="onCalibChange($any($event))"
+        aria-label="Reference pitch"
+      ></ion-range>
+    </div>
+
+    <!-- Mic button + message -->
+    <div class="mic-section">
+      <button
+        class="mic-btn"
+        [class.listening]="tuner.isListening()"
+        [class.requesting]="tuner.status() === 'requesting'"
+        (click)="onMicToggle()"
+      >
+        @if (tuner.isListening()) {
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span>Stop Listening</span>
+        } @else if (tuner.status() === 'requesting') {
+          <ion-icon name="mic-outline" aria-hidden="true"></ion-icon>
+          <span>Requesting…</span>
+        } @else {
+          <ion-icon name="mic-outline" aria-hidden="true"></ion-icon>
+          <span>Start Listening</span>
+        }
+      </button>
+      <div class="mic-msg" [class.error]="micMessageTone() === 'error'">{{ micMessage() }}</div>
+    </div>
+
   </div>
-
-  <!-- Mic message -->
-  <div class="mic-msg" [class.error]="micMessageTone() === 'error'">{{ micMessage() }}</div>
-
 </ion-content>

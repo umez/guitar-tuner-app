@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -48,7 +48,7 @@ interface PegVM {
     IonRange,
   ],
 })
-export class HomePage {
+export class HomePage implements OnDestroy {
   readonly tuner = inject(TunerService);
   readonly tunings = TUNINGS;
 
@@ -62,6 +62,7 @@ export class HomePage {
   readonly needleAngle = computed(() => {
     const r = this.tuner.reading();
     if (!r) return 0;
+
     return Math.max(-90, Math.min(90, r.cents * 1.8));
   });
 
@@ -99,6 +100,7 @@ export class HomePage {
     if (status !== 'listening') return this.idleStatusText(status);
     if (!r) return 'Play a string…';
     if (r.inTune) return 'In tune';
+    console.log(r.cents);
     if (Math.abs(r.cents) < 20) return r.cents < 0 ? 'Slightly flat' : 'Slightly sharp';
     return r.cents < 0 ? 'Flat — tighten' : 'Sharp — loosen';
   });
@@ -141,9 +143,9 @@ export class HomePage {
   readonly dialGeometry = buildDialGeometry();
   /** Tick mark descriptors, rendered with @for in the template. */
   readonly ticks = buildTicks();
-  /** Center label position (the "0" above the hub). */
-  readonly dialCenterX = +(polar(CX, CY, R_INNER - 16, 90).x.toFixed(1));
-  readonly dialCenterY = +(polar(CX, CY, R_INNER - 16, 90).y.toFixed(1));
+  /** Center label position — "0" sits at the top of the arc (0¢ = polar 0° = top). */
+  readonly dialCenterX = +(polar(CX, CY, R_INNER - 16, 0).x.toFixed(1));
+  readonly dialCenterY = +(polar(CX, CY, R_INNER - 16, 0).y.toFixed(1));
 
   // ---- Actions -------------------------------------------------------
 
@@ -164,6 +166,10 @@ export class HomePage {
     if (typeof v === 'number') this.tuner.setA4(v);
   }
 
+  resetCalib(): void {
+    this.tuner.setA4(440);
+  }
+
   trackPeg(_: number, p: PegVM): string {
     return `${p.index}-${p.name}`;
   }
@@ -177,6 +183,10 @@ export class HomePage {
       default: return 'Tap mic to start';
     }
   }
+
+  ngOnDestroy(): void {
+  this.tuner.stop();
+}
 }
 
 /* ----------------------------------------------------------------
@@ -226,11 +236,12 @@ function ringSegment(
 
 /** Tick mark positions at every 10 cents from -50 to +50. */
 function buildTicks(): TickVM[] {
-  const degPerCent = 90 / 50;
+  const degPerCent = 90 / 50; // 1.8° per cent
   const out: TickVM[] = [];
   for (let c = -50; c <= 50; c += 10) {
-    // Same mapping as zones: 0¢ = 270° (top).
-    const ang = 270 + c * degPerCent;
+    // polar() maps deg=0 → top, deg=90 → right, deg=-90 → left.
+    // So cents → angle is simply c * 1.8: 0¢=top, -50¢=left, +50¢=right.
+    const ang = c * degPerCent;
     const major = c === 0 || Math.abs(c) === 50;
     const mid = Math.abs(c) === 25;
     const rIn = major || mid ? R_INNER - 6 : R_INNER;
@@ -246,18 +257,19 @@ function buildTicks(): TickVM[] {
 }
 
 function buildDialGeometry(): DialGeom {
-  const degPerCent = 90 / 50; // ±50 cents → ±90°
+  const degPerCent = 90 / 50; // 1.8° per cent
 
-  // Cents → screen degrees in the top semicircle system.
-  // 0 cents = 270° (top / 12 o'clock), -50¢ = 180° (left), +50¢ = 360° (right).
+  // polar() maps deg=0 → top. Cents → angle: c * 1.8.
+  // 0¢ = top, -50¢ = left (-90°), +50¢ = right (+90°).
   const band = (c1: number, c2: number) => {
-    const a1 = 270 + c1 * degPerCent;
-    const a2 = 270 + c2 * degPerCent;
+    const a1 = c1 * degPerCent;
+    const a2 = c2 * degPerCent;
     return ringSegment(CX, CY, R_OUTER - 2, R_INNER + 2, Math.min(a1, a2), Math.max(a1, a2));
   };
 
   return {
-    body: ringSegment(CX, CY, R_OUTER, R_INNER, 180, 360),
+    // Top semicircle: from left (-90°) through top (0°) to right (+90°).
+    body: ringSegment(CX, CY, R_OUTER, R_INNER, -90, 90),
     zoneRedL: band(-50, -20),
     zoneAmberL: band(-20, -5),
     zoneGreen: band(-5, 5),
