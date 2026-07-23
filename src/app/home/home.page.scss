@@ -81,21 +81,23 @@ ion-content.tuner-content {
   height: 100%;
   overflow: visible;
 
-  .arc-mid { transition: fill 0.25s ease; }
+  .arc-mid { transition: fill 0.4s ease; }
 
   &.state-red    .arc-mid { fill: #2a1418; }
   &.state-amber  .arc-mid { fill: #2a2114; }
   &.state-green  .arc-mid { fill: #143020; }
   &.state-idle   .arc-mid { fill: url(#midGrad); }
 
-  .hub { fill: #3a4459; transition: fill 0.2s ease; }
+  .hub { fill: #3a4459; transition: fill 0.35s ease; }
   &.state-red    .hub { fill: var(--gt-red); }
   &.state-amber  .hub { fill: var(--gt-amber); }
   &.state-green  .hub { fill: var(--gt-green); }
+
+  [fill*="rgba"] { transition: fill 0.4s ease; }
 }
 
 .dial-needle {
-  transition: transform 0.16s cubic-bezier(0.34, 1.4, 0.5, 1);
+  transition: transform 0.28s cubic-bezier(0.25, 1.2, 0.35, 1);
 }
 
 /* ---------- Readout ---------- */

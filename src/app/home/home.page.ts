@@ -62,7 +62,6 @@ export class HomePage implements OnDestroy {
   readonly needleAngle = computed(() => {
     const r = this.tuner.reading();
     if (!r) return 0;
-
     return Math.max(-90, Math.min(90, r.cents * 1.8));
   });
 

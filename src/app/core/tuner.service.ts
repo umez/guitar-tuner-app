@@ -33,11 +33,13 @@ export type MicStatus =
   | 'error';
 
 const SILENCE_HOLD_FRAMES = 8; // hold the last reading briefly during quiet gaps
+const VOLUME_MIN = 0.015; // RMS threshold — reject quiet background noise
 const CLARITY_MIN = 0.5;
 const RECENT_MAX = 7; // rolling-median window
-const SMOOTH_CENTS = 0.45; // weight of new sample (0..1); lower = smoother
-const SMOOTH_FREQ = 0.4;
+const SMOOTH_CENTS = 0.15; // weight of new sample (0..1); lower = smoother
+const SMOOTH_FREQ = 0.12;
 const IN_TUNE_CENTS = 5;
+const FRAME_SKIP = 2; // emit reading to signal every N frames (throttle)
 
 /**
  * Owns the Web Audio pipeline and exposes reactive state via signals.
@@ -79,12 +81,14 @@ export class TunerService {
   readonly isListening = computed(() => this._status() === 'listening');
 
   /** Convenience: the currently-detected MIDI note, or null. */
-  readonly detectedMidi = computed(() => this._reading()?.noteLetter ? this._reading() : null);
+  // readonly detectedMidi = computed(() => this._reading()?.noteLetter ? this._reading() : null);
 
   // ---- Audio internals ------------------------------------------------
   private audioCtx: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
+  private highpass: BiquadFilterNode | null = null;
+  private lowpass: BiquadFilterNode | null = null;
   private analyser: AnalyserNode | null = null;
   private buffer: Float32Array<ArrayBuffer> | null = null;
   private rafId: number | null = null;
@@ -94,6 +98,8 @@ export class TunerService {
   private smoothFreq = 0;
   private recentCents: number[] = [];
   private silentFrames = 0;
+  private frameCount = 0;
+  private lockedString: number | null = null;
 
   // ---- Configuration setters -----------------------------------------
 
@@ -152,19 +158,35 @@ export class TunerService {
     }
 
     this.source = this.audioCtx.createMediaStreamSource(this.stream);
+
+    // Bandpass filter chain — removes rumble and high-frequency noise
+    // outside the guitar fundamental range (~80–1400 Hz).
+    this.highpass = this.audioCtx.createBiquadFilter();
+    this.highpass.type = 'highpass';
+    this.highpass.frequency.value = 75;
+    this.highpass.Q.value = 0.7;
+
+    this.lowpass = this.audioCtx.createBiquadFilter();
+    this.lowpass.type = 'lowpass';
+    this.lowpass.frequency.value = 1400;
+    this.lowpass.Q.value = 0.7;
+
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 4096;
     this.analyser.smoothingTimeConstant = 0;
     // Allocate with an explicit ArrayBuffer so the type narrows to
     // Float32Array<ArrayBuffer> (matches AnalyserNode's signature under TS 5.7+).
     this.buffer = new Float32Array(new ArrayBuffer(this.analyser.fftSize * 4));
-    this.source.connect(this.analyser);
+    this.source.connect(this.highpass);
+    this.highpass.connect(this.lowpass);
+    this.lowpass.connect(this.analyser);
     // Intentionally NOT connecting analyser → destination (no monitor speaker).
 
     this.smoothCents = 0;
     this.smoothFreq = 0;
     this.recentCents = [];
     this.silentFrames = 0;
+    this.lockedString = null;
 
     this._status.set('listening');
     this.rafId = requestAnimationFrame(this.tick);
@@ -178,6 +200,10 @@ export class TunerService {
     }
     this.source?.disconnect();
     this.source = null;
+    this.highpass?.disconnect();
+    this.highpass = null;
+    this.lowpass?.disconnect();
+    this.lowpass = null;
     this.analyser?.disconnect();
     this.analyser = null;
     this.buffer = null;
@@ -196,6 +222,8 @@ export class TunerService {
     this.smoothCents = 0;
     this.smoothFreq = 0;
     this.recentCents = [];
+    this.frameCount = 0;
+    this.lockedString = null;
   }
 
   /** Toggle listening. */
@@ -241,15 +269,23 @@ export class TunerService {
     if (!this.analyser || !this.buffer || !this.audioCtx) return;
     this.analyser.getFloatTimeDomainData(this.buffer);
 
+    // Volume gate — reject quiet background noise before pitch detection
+    let rms = 0;
+    for (let i = 0; i < this.buffer.length; i++) {
+      rms += this.buffer[i] * this.buffer[i];
+    }
+    rms = Math.sqrt(rms / this.buffer.length);
+
     const { freq, clarity } = detectPitch(this.buffer, this.audioCtx.sampleRate);
 
-    // Gate: silent / noisy frames
-    if (freq <= 0 || clarity < CLARITY_MIN) {
+    // Gate: silent / noisy / quiet frames
+    if (freq <= 0 || clarity < CLARITY_MIN || rms < VOLUME_MIN) {
       this.silentFrames++;
       if (this.silentFrames > SILENCE_HOLD_FRAMES) {
         this.recentCents = [];
         this.smoothCents = 0;
         this.smoothFreq = 0;
+        this.lockedString = null;
         this._reading.set(null);
       }
       this.rafId = requestAnimationFrame(this.tick);
@@ -273,7 +309,10 @@ export class TunerService {
     this.smoothCents = this.smoothCents * (1 - SMOOTH_CENTS) + med * SMOOTH_CENTS;
     this.smoothFreq = this.smoothFreq * (1 - SMOOTH_FREQ) + freq * SMOOTH_FREQ;
 
-    this._reading.set(this.buildReading(note, this.smoothFreq, this.smoothCents, a4));
+    this.frameCount++;
+    if (this.frameCount % FRAME_SKIP === 0) {
+      this._reading.set(this.buildReading(note, this.smoothFreq, this.smoothCents, a4));
+    }
     this.rafId = requestAnimationFrame(this.tick);
   };
 
@@ -287,20 +326,33 @@ export class TunerService {
     const inTune = abs < IN_TUNE_CENTS;
     const state: -1 | 0 | 1 = inTune ? 0 : cents < 0 ? -1 : 1;
 
-    // Match to a string: pinned if manual, else nearest by MIDI within ±3 semis.
+    // Match to a string: pinned if manual, else honour locked string, else auto-detect.
     let matchedString: number | null = null;
     const strings = this.tuning().strings;
     const manual = this._manualString();
     if (manual !== null) {
       matchedString = manual;
-    } else {
+    } else if (this.lockedString !== null) {
+      // Stay locked while the current note is still near the locked string
+      const lockedMidi = strings[this.lockedString].midi;
+      if (Math.abs(lockedMidi - note.midi) <= 3) {
+        matchedString = this.lockedString;
+      } else {
+        this.lockedString = null; // release — user moved to a different string
+      }
+    }
+
+    if (matchedString === null) {
       let best = Infinity;
       let bestIdx = -1;
       for (let i = 0; i < strings.length; i++) {
         const d = Math.abs(strings[i].midi - note.midi);
         if (d < best) { best = d; bestIdx = i; }
       }
-      matchedString = best <= 3 ? bestIdx : null;
+      if (best <= 3) {
+        matchedString = bestIdx;
+        this.lockedString = bestIdx; // lock to this string
+      }
     }
 
     // When a string is manually pinned, idealFreq is that string's target.
