@@ -242,6 +242,30 @@ ion-content.tuner-content {
   color: #c7ffe1;
 }
 
+.string.tuned .string-peg {
+  position: relative;
+  border-color: var(--gt-green);
+  color: #ffffff;
+  background: radial-gradient(circle at 45% 28%, rgba(61,220,132,0.28), rgba(14,47,24,0.96));
+  box-shadow: 0 0 0 1px rgba(61,220,132,0.24), 0 0 20px -4px rgba(61,220,132,0.55);
+}
+
+.string.tuned .string-peg::after {
+  content: '✓';
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(61,220,132,0.95);
+  color: #0b1510;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
 .string-freq {
   font-size: 10px;
   color: var(--gt-text-faint);

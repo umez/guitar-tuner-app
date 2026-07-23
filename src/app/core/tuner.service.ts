@@ -300,7 +300,6 @@ export class TunerService {
         this.smoothFreq = 0;
         this.lockedString = null;
         this.tunedCounters = [];
-        this._tunedSet.set(new Set());
         this._reading.set(null);
       }
       this.rafId = requestAnimationFrame(this.tick);

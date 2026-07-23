@@ -29,6 +29,7 @@ interface PegVM {
   selected: boolean;
   detected: boolean;
   inTune: boolean;
+  tuned: boolean;
 }
 
 @Component({
@@ -117,6 +118,7 @@ export class HomePage implements OnDestroy {
       selected: manual === i,
       detected: reading?.matchedString === i,
       inTune: reading?.matchedString === i && !!reading?.inTune,
+      tuned: this.tuner.tunedSet().has(i),
     }));
   });
 
