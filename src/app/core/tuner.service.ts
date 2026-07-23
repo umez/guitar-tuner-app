@@ -33,13 +33,14 @@ export type MicStatus =
   | 'error';
 
 const SILENCE_HOLD_FRAMES = 8; // hold the last reading briefly during quiet gaps
-const VOLUME_MIN = 0.015; // RMS threshold — reject quiet background noise
-const CLARITY_MIN = 0.5;
+const VOLUME_MIN = 0.005; // RMS threshold — lowered for quieter high-string signals on mobile mics
+const CLARITY_MIN = 0.3;
 const RECENT_MAX = 7; // rolling-median window
 const SMOOTH_CENTS = 0.15; // weight of new sample (0..1); lower = smoother
 const SMOOTH_FREQ = 0.12;
 const IN_TUNE_CENTS = 5;
 const FRAME_SKIP = 2; // emit reading to signal every N frames (throttle)
+const TUNED_FRAMES_REQUIRED = 15; // consecutive in-tune readings (~500ms at 30 fps) before marking string as tuned
 
 /**
  * Owns the Web Audio pipeline and exposes reactive state via signals.
@@ -80,6 +81,12 @@ export class TunerService {
 
   readonly isListening = computed(() => this._status() === 'listening');
 
+  // ---- Tuned string tracking ------------------------------------------
+  private readonly _tunedSet = signal<Set<number>>(new Set());
+  /** Set of string indices that have been held in-tune for a sustained period. */
+  readonly tunedSet = this._tunedSet.asReadonly();
+  private tunedCounters: number[] = [];
+
   /** Convenience: the currently-detected MIDI note, or null. */
   // readonly detectedMidi = computed(() => this._reading()?.noteLetter ? this._reading() : null);
 
@@ -113,6 +120,8 @@ export class TunerService {
     if (TUNINGS.some((t) => t.id === id)) {
       this._tuningId.set(id);
       this._manualString.set(null);
+      this.tunedCounters = [];
+      this._tunedSet.set(new Set());
     }
   }
 
@@ -187,6 +196,8 @@ export class TunerService {
     this.recentCents = [];
     this.silentFrames = 0;
     this.lockedString = null;
+    this.tunedCounters = new Array(this.tuning().strings.length).fill(0);
+    this._tunedSet.set(new Set());
 
     this._status.set('listening');
     this.rafId = requestAnimationFrame(this.tick);
@@ -224,6 +235,8 @@ export class TunerService {
     this.recentCents = [];
     this.frameCount = 0;
     this.lockedString = null;
+    this.tunedCounters = [];
+    this._tunedSet.set(new Set());
   }
 
   /** Toggle listening. */
@@ -286,6 +299,8 @@ export class TunerService {
         this.smoothCents = 0;
         this.smoothFreq = 0;
         this.lockedString = null;
+        this.tunedCounters = [];
+        this._tunedSet.set(new Set());
         this._reading.set(null);
       }
       this.rafId = requestAnimationFrame(this.tick);
@@ -294,6 +309,22 @@ export class TunerService {
     this.silentFrames = 0;
 
     const a4 = this._a4();
+    const strings = this.tuning().strings;
+
+    // --- Lock check on raw frequency (before smoothing) -----------------
+    // Only match on the locked string's FUNDAMENTAL — never fold harmonics.
+    // Otherwise high E4 (329.6 Hz) looks like the 4th harmonic of low E2
+    // and the lock refuses to switch.
+    if (this.lockedString !== null) {
+      const f0 = midiToFreq(strings[this.lockedString].midi, a4);
+      if (Math.abs(12 * Math.log2(freq / f0)) > 3) {
+        this.lockedString = null;
+        this.recentCents = [];
+        this.smoothCents = 0;
+        this.smoothFreq = 0;
+      }
+    }
+
     const note = freqToNote(freq, a4);
     if (!note) {
       this.rafId = requestAnimationFrame(this.tick);
@@ -312,6 +343,26 @@ export class TunerService {
     this.frameCount++;
     if (this.frameCount % FRAME_SKIP === 0) {
       this._reading.set(this.buildReading(note, this.smoothFreq, this.smoothCents, a4));
+
+      // ---- Tuned string tracking ------------------------------------
+      const r = this._reading();
+      if (r && r.matchedString !== null && r.matchedString < this.tunedCounters.length) {
+        if (r.inTune) {
+          this.tunedCounters[r.matchedString]++;
+          if (this.tunedCounters[r.matchedString] >= TUNED_FRAMES_REQUIRED) {
+            const next = new Set(this._tunedSet());
+            next.add(r.matchedString);
+            this._tunedSet.set(next);
+          }
+        } else {
+          this.tunedCounters[r.matchedString] = 0;
+          if (this._tunedSet().has(r.matchedString)) {
+            const next = new Set(this._tunedSet());
+            next.delete(r.matchedString);
+            this._tunedSet.set(next);
+          }
+        }
+      }
     }
     this.rafId = requestAnimationFrame(this.tick);
   };
@@ -333,13 +384,7 @@ export class TunerService {
     if (manual !== null) {
       matchedString = manual;
     } else if (this.lockedString !== null) {
-      // Stay locked while the current note is still near the locked string
-      const lockedMidi = strings[this.lockedString].midi;
-      if (Math.abs(lockedMidi - note.midi) <= 3) {
-        matchedString = this.lockedString;
-      } else {
-        this.lockedString = null; // release — user moved to a different string
-      }
+      matchedString = this.lockedString;
     }
 
     if (matchedString === null) {
@@ -351,7 +396,7 @@ export class TunerService {
       }
       if (best <= 3) {
         matchedString = bestIdx;
-        this.lockedString = bestIdx; // lock to this string
+        this.lockedString = bestIdx;
       }
     }
 
